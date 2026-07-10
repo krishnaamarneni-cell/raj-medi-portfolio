@@ -41,7 +41,7 @@ export async function verifySession(): Promise<boolean> {
 }
 
 export function verifyPassword(input: string): boolean {
-  const password = process.env.ADMIN_PASSWORD;
+  const password = process.env.ADMIN_PASSWORD?.trim();
   if (!password) return false;
   return input === password;
 }
