@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import type { Experience } from "@/lib/data";
+import { createClient } from "@/lib/supabase/client";
 
 /* ── types ── */
 
@@ -16,6 +17,7 @@ interface ResumeInfo {
 /* ── login screen ── */
 
 function LoginScreen({ onLogin }: { onLogin: () => void }) {
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -27,13 +29,14 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
     const res = await fetch("/api/auth/login", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ email, password }),
     });
     setLoading(false);
     if (res.ok) {
       onLogin();
     } else {
-      setError("Invalid password");
+      const data = await res.json();
+      setError(data.error || "Login failed");
     }
   }
 
@@ -45,16 +48,24 @@ function LoginScreen({ onLogin }: { onLogin: () => void }) {
       >
         <h1 className="text-2xl font-semibold text-white">Admin</h1>
         <p className="mt-1 text-sm text-white/40">
-          Enter your password to manage this site.
+          Sign in to manage this site.
         </p>
+
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email"
+          autoFocus
+          className="mt-6 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#4da3ff]/50"
+        />
 
         <input
           type="password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="Password"
-          autoFocus
-          className="mt-6 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#4da3ff]/50"
+          className="mt-3 w-full rounded-lg border border-white/10 bg-white/[0.04] px-4 py-3 text-sm text-white placeholder-white/30 outline-none focus:border-[#4da3ff]/50"
         />
 
         {error && (
@@ -476,20 +487,36 @@ function Dashboard({ onLogout }: { onLogout: () => void }) {
 export default function AdminPage() {
   const [authed, setAuthed] = useState(false);
   const [checking, setChecking] = useState(true);
+  const [configError, setConfigError] = useState("");
 
   useEffect(() => {
-    fetch("/api/admin/experience")
-      .then((r) => {
-        if (r.ok) setAuthed(true);
+    try {
+      const supabase = createClient();
+      supabase.auth.getUser().then(({ data }) => {
+        if (data.user) setAuthed(true);
         setChecking(false);
-      })
-      .catch(() => setChecking(false));
+      });
+    } catch (e) {
+      setConfigError(e instanceof Error ? e.message : "Configuration error");
+      setChecking(false);
+    }
   }, []);
 
   if (checking) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#050507]">
         <p className="text-sm text-white/30">Loading…</p>
+      </div>
+    );
+  }
+
+  if (configError) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#050507] px-4">
+        <div className="max-w-md rounded-2xl border border-red-500/20 bg-red-500/[0.04] p-8 text-center">
+          <p className="text-lg font-medium text-red-400">Configuration Missing</p>
+          <p className="mt-3 text-sm leading-relaxed text-white/50">{configError}</p>
+        </div>
       </div>
     );
   }
