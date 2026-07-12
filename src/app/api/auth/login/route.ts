@@ -1,10 +1,18 @@
-import { createSession, verifyPassword } from "@/lib/auth";
+import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
-  const { password } = await request.json();
-  if (!verifyPassword(password)) {
-    return Response.json({ error: "Invalid password" }, { status: 401 });
+  const { email, password } = await request.json();
+
+  if (!email || !password) {
+    return Response.json({ error: "Email and password required" }, { status: 400 });
   }
-  await createSession();
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+
+  if (error) {
+    return Response.json({ error: error.message }, { status: 401 });
+  }
+
   return Response.json({ ok: true });
 }
